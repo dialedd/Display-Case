@@ -1,0 +1,112 @@
+# made by _dialed
+# add me on disc for questions
+# give cred
+
+function display(p: player, l: location):
+	spawn armor stand 0.87 meter below {_l} with nbt compound from "{NoGravity:1b,Invisible:1b,Invulnerable:1b,DisabledSlots:2096896}"
+	set {_s} to (last spawned armor stand)
+	set {_nbt} to (nbt compound of {_s})
+	set (compound tag "custom;Display" of ({_nbt})) to (nbt compound from "{Owner:%{_p}%}")
+	equip {_s} with glass
+
+function format(p: player):
+	set {_item} to glass
+	set {_nbt} to (nbt compound from {_item})
+	set byte tag "Display" of {_nbt} to 1
+	set name of {_item} to "&FDisplay-Case"
+	set lore of {_item} to "&7Use this to display items", "&7Place it and right click the block", "&7with your &ditem of choice"
+	give {_p} {_item}
+
+function item(p: player, e: entity, i: item):
+	drop 1 of {_i} 1.37 meters above {_e} without velocity
+	set {_d} to last dropped item
+	set gravity of {_d} to false
+	le spawn text display 1 meters above {_d}
+	set {_n} to last spawned entity
+	set {_o} to (tag "custom;Display;Owner" of (nbt of {_e}))
+	set (string tag "custom;Display;text" of (nbt of {_e})) to uuid of {_n}
+	set (display text of {_n}) to (name of {_i} ? "&f%type of {_i}%"), "&7Owner: %{_o}%"
+	set (display billboard of {_n}) to center
+	set (tag "Owner" of nbt of {_d}) to uuid int array #no one can pick up
+	set (tag "Age" of nbt of {_d}) to -32768 #wont despawn
+	set (string tag "custom;Display;item" of (nbt compound of {_e})) to uuid of {_d}
+	remove 1 of {_i} from {_p}
+
+function remove(p: player, e: entity):
+	set {_n} to (string tag "custom;Display;item" of (nbt compound from {_e}))
+	set {_t} to (string tag "custom;Display;text" of (nbt compound from {_e}))
+	delete (string tag "custom;Display;item" of (nbt compound from {_e}))
+	delete (string tag "custom;Display;text" of (nbt compound from {_e}))
+	set {_n} to ({_n} parsed as entity)
+	set {_t} to ({_t} parsed as entity)
+	kill {_n}
+	kill {_t}
+	give {_p} (item of {_n})
+
+
+function gui(p: player, e: entity):
+	set {_nbt} to (nbt compound from {_e})
+	set {_t} to tag "custom;Display;item" of {_nbt}
+	set {_t} to {_t} parsed as entity
+	set {_i} to (item of {_t})
+	set {_g} to (chest inventory with 3 rows named "&fDisplay")
+	set slot (integers between 0 and 26) of {_g} to black stained glass pane
+	set slot 13 of {_g} to {_i}
+	set slot 18 of {_g} to barrier named "&cPickup Display"
+	set (metadata tag "Display" of {_p}) to {_g}
+	open (metadata tag "Display" of {_p}) to {_p}
+
+on inventory click:
+	if event-inventory = (metadata tag "Display" of player):
+		cancel event
+		if index of event-slot = 18:
+			set {_t} to (tag "custom;Display;Owner" of nbt compound from target entity)
+			if {_t} = player:
+				close inventory of player
+				remove(player,target entity)
+				kill target entity
+				format(player)
+			else:
+				message "&cYou do not own this display case!" to player
+
+# display
+on right click:
+	if nbt compound from tool of player has tag "Display":
+		if event-direction = above:
+			cancel event
+			remove 1 of tool of player from player
+			display(player,event-block)
+		else:
+			message "&cYou can only place Display Cases on the top of blocks!" to player
+			cancel event
+	if nbt compound from player's offhand tool has tag "Display":
+		message "&cYou can not use your offhand!" to player
+		cancel event
+
+# item
+on right click on armor stand:
+	if (nbt compound from target entity) has tag "custom;Display":
+		cancel event
+		set {_e} to target entity
+		if player is sneaking:
+			set {_t} to (tag "custom;Display;Owner" of nbt compound from target entity)
+			if {_t} = player:
+				if (nbt compound from target entity) has tag "custom;Display;item":
+					remove(player,{_e})
+				else:
+					if tool of player is air:
+						message "&cYou must be holding an item!" to player
+					else:
+						item(player,{_e},tool of player)
+			else:
+				message "&cYou do not own this display case!" to player
+		else:
+			if (nbt compound from target entity) has tag "custom;Display;item":
+				gui(player,{_e})
+			else:
+				message  "&cThis case has no item!" to player
+
+# commands
+command /display:
+	trigger:
+		format(player)
